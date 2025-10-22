@@ -161,6 +161,8 @@ class AIPlayer(Player):
     #   currentState - A clone of the current state (GameState)
     #   attackingAnt - The ant currently making the attack (Ant)
     #   enemyLocation - The Locations of the Enemies that can be attacked (Location[])
+    #
+    #Returns: The attack
     ##
     def getAttack(self, currentState, attackingAnt, enemyLocations):
         #Attack a random enemy.
@@ -168,9 +170,11 @@ class AIPlayer(Player):
 
     ##
     #registerWin
+    #Description: Registers if a gene has won and evaluates the number of times the gene has won
     #
-    # This agent doens't learn
-    #
+    #Parameters:
+    #   hasWon - A boolean variable of if the AI has won or not
+    ##
     def registerWin(self, hasWon):
         # if the gene has won +1 fitness and if it lost then -1 fitness
         if hasWon:
@@ -191,10 +195,19 @@ class AIPlayer(Player):
         if self.next_to_evaluate == self.POPULATION_SIZE:
             self.generateNextGeneration(self.N_fittest)
         
-    # returns true if best_move will NOT lead to the following:
-    # 1. The agent has more than 2 workers
-    # 2. The agent has more than 1 soldier
-    # 3. The agent has more than 1 ranged soldier
+    ##
+    #regulateAnts
+    #Description: Keeps the army of the AI to a reasonable number of ants
+    #
+    #Parameters:
+    #   currentState - A clone of the current state (GameState)
+    #   best_move - The move that is considered the best for the AI
+    #
+    #Returns: returns true if best_move will NOT lead to the following:
+    #       1. The agent has more than 2 workers
+    #       2. The agent has more than 1 soldier
+    #       3. The agent has more than 1 ranged soldier
+    ##
     def regulateAnts(self, currentState, best_move):
         next_state = getNextStateAdversarial(currentState, best_move)
         myInv = currentState.inventories[self.playerId]
@@ -203,7 +216,16 @@ class AIPlayer(Player):
         my_ranged_soldiers = getAntList(next_state, self.playerId, [R_SOLDIER,])
         return len(my_workers) < 5 and len(my_soldiers) < 3 and len(my_ranged_soldiers) < 3
 
-    
+    ##
+    #scoreMove
+    #Description: Fitness function for ant moves
+    #
+    #Parameters:
+    #   currentState - A clone of the current state (GameState)
+    #   move - An ants move
+    #
+    #Returns: The difference in utility score before and after the move and the move associated with the it
+    ##
     def scoreMove(self, currentState, move):
         curr_state = currentState
         next_state = getNextStateAdversarial(currentState, move)
@@ -218,6 +240,13 @@ class AIPlayer(Player):
         
         return delta, move
     
+    ##
+    #initializePopulation
+    #Description: Initializes the population with a number of genes all with random weights
+    #
+    #Parameters:
+    #   population_size - The size of the population
+    ##
     def initializePopulation(self, population_size):
         self.population = []
         self.fitness = [0 for _ in range(self.POPULATION_SIZE)]
@@ -238,7 +267,18 @@ class AIPlayer(Player):
                     alleles = gene.strip("[]\n").split(",")
                     if alleles:
                         self.population.append([float(x) for x in alleles])
-                
+
+    ##
+    #crossoverMutate
+    #Description: Performs the crossover of two genes and then possibly applies a mutation to the new genes
+    #
+    #Parameters:
+    #   parent1 - A gene which holds an array of alleles
+    #   parent2 - A second gene which holds an array of alleles
+    #   mutation_rate - The rate at which a random allele will be mutated (changed) in the new genes
+    #
+    #Returns: The two newly created genes
+    ## 
     def crossoverMutate(self, parent1, parent2, mutation_rate):
         # split the parents at a random point
         split_point = random.randint(1, 10) # make the split crossover at least 1 allele from each parent
@@ -252,6 +292,15 @@ class AIPlayer(Player):
         
         return child1, child2
     
+    ##
+    #generateNextGeneration
+    #Description: Creates a new population for the next generation based on the fittest genes
+    #
+    #Parameters:
+    #   N_fittest - The number of fittest genes which will be used in the next generation
+    #
+    #Returns: The new population
+    ##
     def generateNextGeneration(self, N_fittest: int):
         next_generation = []
         #self.population.sort(key=lambda x: self.fitness[self.population.index(x)], reverse=True)
@@ -283,6 +332,15 @@ class AIPlayer(Player):
                 # print("wrote gene: ", gene)
         return self.population
     
+    ##
+    #utility
+    #Description: Scores a gene based on the game position the AI is in and the weights of the gene
+    #
+    #Parameters:
+    #   currentState - A clone of the current state (GameState)
+    #
+    #Returns: Returns the utility score of the gene
+    ##
     def utility(self, currentState):
         ### get feature values ###
         feature_vector = []
@@ -327,10 +385,17 @@ class AIPlayer(Player):
             feature_vector[i] = feature_vector[i] * gene_weights[i]
         return sum(feature_vector)
 
-    # max_dist on a 10x10 board is 18 (corner to corner)
+    ##
+    #Helper Function:
+    #max_dist on a 10x10 board is 18 (corner to corner)
+    ##
     def normalize_dist(self, dist, max_dist=18):
         return min(1.0, dist / max_dist)
 
+    ##
+    #Helper Function:
+    #Calculates if AI has more food than opponent
+    ##
     def get_food_val(self, currentState):
         me = self.playerId
         opp = 1 - currentState.whoseTurn
@@ -339,7 +404,11 @@ class AIPlayer(Player):
         if opp_food_count >= 11:
             return 0
         return 1.0 if my_food_count >= opp_food_count else 0.0
-        
+    
+    ##
+    #Helper Function:
+    #Calculates if AI has more queen HP than opponent
+    ##
     def get_queen_HP_val(self, currentState):
         me = self.playerId
         opp = 1 - currentState.whoseTurn
@@ -353,6 +422,11 @@ class AIPlayer(Player):
         my_queen_HP = currentState.inventories[me].getQueen().health
         opp_queen_HP = currentState.inventories[opp].getQueen().health
         return 1.0 if my_queen_HP >= opp_queen_HP else 0.0
+    
+    ##
+    #Helper Function:
+    #Calculates if AI has more ants of a specific type than the opponent
+    ##
     def get_ant_diff(self, currentState, ant_type):
         me = self.playerId
         opp = 1 - currentState.whoseTurn
@@ -362,19 +436,29 @@ class AIPlayer(Player):
         if my_soldier_count == 0 or my_soldier_count > 1:
             return 0.0
         return 1.0 if my_soldier_count > opp_soldier_count else 0.0
+    
+    ##
+    #Helper Function:
+    #Calculates if AI more offensive ant power than the opponent
+    ##
     def better_offense(self, currentState):
         me = self.playerId
         opp = 1 - currentState.whoseTurn
         my_off_ant_count = len(getAntList(currentState, me, [DRONE, SOLDIER, R_SOLDIER]))
         opp_off_ant_count = len(getAntList(currentState, opp, [DRONE, SOLDIER, R_SOLDIER]))
         return 1.0 if my_off_ant_count > opp_off_ant_count else 0.0
-    # allele_index tells the method which allele to calculate a value for
+    
+    ##
+    #Helper Function:
+    #Calculates a number of allele index states and how good the AI is performing
+    #allele_index tells the method which allele to calculate a value for
+    ##
     def get_avg_dist(self, currentState, allele_index):
         me = self.playerId
         opp = 1 - currentState.whoseTurn
         # check if the opponent's queen is alive
         if currentState.inventories[opp].getQueen() is None:
-                    return 1.0
+            return 1.0
         match allele_index:
             case 5:  # Avg distance between the opponent queen and my offensive ants (smaller distance == better)
                 opp_queen = getAntList(currentState, opp, [QUEEN,])[0]
@@ -436,7 +520,12 @@ class AIPlayer(Player):
                 opp_queen = getAntList(currentState, opp, [QUEEN,])[0]
                 return self.normalize_dist(approxDist(my_queen.coords, opp_queen.coords))
 
-    # helper methods for getting features for alleles 12-14
+
+    ##
+    #Helper Function:
+    #helper methods for getting features for alleles 12-14
+    #Finds the dropoff locations (ant tunnel and anthill) for AI
+    ##
     def my_dropoffs(self, currentState):
         me = self.playerId
         tunnel = getConstrList(currentState, me, (TUNNEL,))[0]
@@ -444,9 +533,25 @@ class AIPlayer(Player):
         dropoffs = [tunnel, hill]
         return dropoffs
 
+    ##
+    #Helper Function:
+    #Calculates the closests target from a current position (target could be food or dropoff locations while positions are ants)
+    ##
     def closest_target(self, curr_coords, targets):
         return min((approxDist(curr_coords, target.coords) for target in targets), default=None)
     
+    ##
+    #worker_progress
+    #Description: Calculates a three float array based on the workers and how they are performing, which contains the following:
+    #       value1 - average number of workers on food
+    #       value2 - average number of workers on dropoffs
+    #       value3 - average number of workers and their distance from dropoff or food
+    #
+    #Parameters:
+    #   currentState - A clone of the current state (GameState)
+    #
+    #Returns: The three float array
+    ##
     def worker_progress(self, currentState):
         me = self.playerId
         
@@ -484,9 +589,17 @@ class AIPlayer(Player):
         num_workers = float(len(my_workers))
         return [g1/num_workers, g2/num_workers, g3_sum/num_workers]
                 
-        
-        
-
+    ##
+    #createNode
+    #Description: Creates a new node for the node tree
+    #
+    #Parameters:
+    #   move - The move associated with the node
+    #   parentNode - The parent of the node
+    #   currentState - A clone of the current state (GameState)
+    #
+    #Returns: The newly created node
+    ##
     def createNode(self, move, parentNode, currentState):
         # 1. Update the depth
         if parentNode == None:
@@ -509,6 +622,16 @@ class AIPlayer(Player):
         
         return node
 
+
+    ##
+    #expandNode
+    #Description: Expands the node by creating a new node in the state space for every possible move the AI could make
+    #
+    #Parameters:
+    #   currentNode - The current node that is being searched in the state space
+    #
+    #Returns: All of the newly expanded nodes
+    #
     def expandNode(self, currentNode):
         # 1. Generate a list of all valid moves from the GameState in the given node
         currentState = currentNode['currentState']
